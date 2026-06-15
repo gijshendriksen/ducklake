@@ -73,9 +73,9 @@ SELECT COUNT(*) FROM GLOB('{DATA_PATH}/ducklake_multiple_inserts/**/*')
 7
 
 query III
-SELECT table_name, files_processed, files_created FROM ducklake_rewrite_data_files('ducklake', 'test', delete_threshold => 0) ORDER BY ALL
+SELECT table_name, SUM(files_processed), SUM(files_created) FROM ducklake_rewrite_data_files('ducklake', 'test', delete_threshold => 0) GROUP BY table_name ORDER BY ALL
 ----
-test	3	1
+test	3	3
 
 statement ok
 CALL ducklake_cleanup_old_files('ducklake', cleanup_all => true);
@@ -84,7 +84,7 @@ CALL ducklake_cleanup_old_files('ducklake', cleanup_all => true);
 query I
 SELECT COUNT(*) FROM GLOB('{DATA_PATH}/ducklake_multiple_inserts/**/*')
 ----
-7
+9
 
 query I
 select count(*) from test;

@@ -77,10 +77,10 @@ SELECT count(*) FROM ducklake_metadata.ducklake_data_file WHERE end_snapshot IS 
 
 # Now lets call the rewrite function in the whole DB
 query III
-SELECT table_name, files_processed, files_created FROM ducklake_rewrite_data_files('ducklake', delete_threshold => 0) ORDER BY ALL
+SELECT table_name, SUM(files_processed), SUM(files_created) FROM ducklake_rewrite_data_files('ducklake', delete_threshold => 0) GROUP BY table_name ORDER BY ALL
 ----
-test_0	2	1
-test_1	2	1
+test_0	2	2
+test_1	2	2
 
 # Capture the rewrite snapshot id
 statement ok
@@ -107,12 +107,12 @@ SELECT count(*) FROM ducklake_metadata.ducklake_data_file WHERE end_snapshot = g
 query I
 SELECT count(*) FROM ducklake_metadata.ducklake_data_file WHERE end_snapshot IS NULL
 ----
-2
+4
 
 query I
 SELECT count(*) FROM ducklake_metadata.ducklake_data_file WHERE begin_snapshot = getvariable('rewrite_snap') AND end_snapshot IS NULL
 ----
-2
+4
 
 # Validate time travel results for test_0
 # Capture snapshot IDs for test_0 operations (table_id=1)

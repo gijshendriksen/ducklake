@@ -177,9 +177,9 @@ CALL ducklake_set_option('ducklake', 'target_file_size', '1MB');
 
 # Rewrite all data files, including ones with partial_max
 query III
-SELECT table_name, files_processed, files_created FROM ducklake_rewrite_data_files('ducklake', 't', delete_threshold => 0)
+SELECT table_name, SUM(files_processed), SUM(files_created) FROM ducklake_rewrite_data_files('ducklake', 't', delete_threshold => 0) GROUP BY table_name
 ----
-t	2	1
+t	2	2
 
 statement ok
 SET VARIABLE snap_rewrite = (SELECT MAX(snapshot_id) FROM ducklake_snapshots('ducklake'));
@@ -188,7 +188,7 @@ SET VARIABLE snap_rewrite = (SELECT MAX(snapshot_id) FROM ducklake_snapshots('du
 query III
 SELECT table_name, files_processed, files_created FROM ducklake_merge_adjacent_files('ducklake', 't')
 ----
-t	2	1
+t	3	1
 
 # Verify that we ended up with a single file
 query I

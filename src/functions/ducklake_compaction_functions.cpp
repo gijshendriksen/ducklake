@@ -271,18 +271,38 @@ void DuckLakeCompactor::GenerateCompactions(DuckLakeTableEntry &table,
 	// (sorted by the min/max metadata)
 	auto files = metadata_manager.GetFilesForCompaction(table, type, delete_threshold, snapshot, filter_options);
 
+	// For REWRITE_DELETES, generate one compaction command per data file
+	if (type == CompactionType::REWRITE_DELETES) {
+		for (idx_t file_idx = 0; file_idx < files.size(); file_idx++) {
+			auto &candidate = files[file_idx];
+			if (candidate.file.end_snapshot.IsValid()) {
+				// only active data files are compacted
+				continue;
+			}
+
+			const vector<DuckLakeCompactionFileEntry> partition_files = {std::move(candidate)};
+			auto compaction_command = GenerateCompactionCommand(std::move(partition_files));
+
+			if (compaction_command) {
+				compactions.push_back(std::move(compaction_command));
+			}
+		}
+		return;
+	}
+
 	// iterate over the files and split into separate compaction groups
 	compaction_map_t<DuckLakeCompactionCandidates> candidates;
 	for (idx_t file_idx = 0; file_idx < files.size(); file_idx++) {
 		auto &candidate = files[file_idx];
-		if (candidate.file.data.file_size_bytes >= target_file_size && type != CompactionType::REWRITE_DELETES) {
-			// this file by itself exceeds the threshold - skip merging
-			// (does not apply to REWRITE_DELETES - delete files must be rewritten regardless of data file size)
+		if (candidate.file.end_snapshot.IsValid()) {
+			// only active data files are compacted
 			continue;
 		}
-		if (((!candidate.delete_files.empty() || candidate.has_inlined_deletions) &&
-		     type == CompactionType::MERGE_ADJACENT_TABLES) ||
-		    candidate.file.end_snapshot.IsValid()) {
+		if (candidate.file.data.file_size_bytes >= target_file_size) {
+			// this file by itself exceeds the threshold - skip merging
+			continue;
+		}
+		if (!candidate.delete_files.empty() || candidate.has_inlined_deletions) {
 			// Merge Adjacent Tables doesn't perform the merge if any deletes are present
 			continue;
 		}
@@ -294,24 +314,7 @@ void DuckLakeCompactor::GenerateCompactions(DuckLakeTableEntry &table,
 
 		candidates[group].candidate_files.push_back(file_idx);
 	}
-	if (type == CompactionType::REWRITE_DELETES) {
-		// For REWRITE_DELETES, generate one compaction command per partition group
-		for (auto &entry : candidates) {
-			auto &candidate_list = entry.second.candidate_files;
-			if (candidate_list.empty()) {
-				continue;
-			}
-			vector<DuckLakeCompactionFileEntry> partition_files;
-			for (auto &candidate_idx : candidate_list) {
-				partition_files.push_back(std::move(files[candidate_idx]));
-			}
-			auto compaction_command = GenerateCompactionCommand(std::move(partition_files));
-			if (compaction_command) {
-				compactions.push_back(std::move(compaction_command));
-			}
-		}
-		return;
-	}
+
 	// we have gathered all the candidate files per compaction group
 	// iterate over them to generate actual compaction commands
 	uint64_t compacted_files = 0;

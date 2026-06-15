@@ -89,9 +89,9 @@ SELECT table_name, files_processed, files_created FROM ducklake_merge_adjacent_f
 
 skipif i=1
 query III
-SELECT table_name, files_processed, files_created FROM ducklake_rewrite_data_files('ducklake', 'test', delete_threshold => 0) ORDER BY ALL
+SELECT table_name, SUM(files_processed), SUM(files_created) FROM ducklake_rewrite_data_files('ducklake', 'test', delete_threshold => 0) GROUP BY table_name ORDER BY ALL
 ----
-test	3	1
+test	3	3
 
 statement ok
 CALL ducklake_cleanup_old_files('ducklake', cleanup_all => true);
@@ -106,30 +106,31 @@ skipif i=1
 query I
 SELECT COUNT(*) FROM GLOB('{DATA_PATH}/ducklake_last_merge_rewrite/**/*')
 ----
-7
+9
 
 skipif i=0
 query III
-SELECT table_name, files_processed, files_created FROM ducklake_rewrite_data_files('ducklake', 'test', delete_threshold => 0) ORDER BY ALL
+SELECT table_name, SUM(files_processed), SUM(files_created) FROM ducklake_rewrite_data_files('ducklake', 'test', delete_threshold => 0) GROUP BY table_name ORDER BY ALL
 ----
-test	3	1
+test	3	3
 
 skipif i=1
 query III
 SELECT table_name, files_processed, files_created FROM ducklake_merge_adjacent_files('ducklake')
 ----
+test	3	1
 
 skipif i=0
 query I
 SELECT COUNT(*) FROM GLOB('{DATA_PATH}/ducklake_last_merge_rewrite/**/*')
 ----
-14
+16
 
 skipif i=1
 query I
 SELECT COUNT(*) FROM GLOB('{DATA_PATH}/ducklake_last_merge_rewrite/**/*')
 ----
-7
+10
 
 statement ok
 CALL ducklake_cleanup_old_files('ducklake', cleanup_all => true);
@@ -144,7 +145,7 @@ skipif i=0
 query I
 SELECT COUNT(*) FROM GLOB('{DATA_PATH}/ducklake_last_merge_rewrite/**/*')
 ----
-14
+16
 
 query I
 select count(*) from test;
